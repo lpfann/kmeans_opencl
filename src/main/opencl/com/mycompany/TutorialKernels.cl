@@ -1,5 +1,11 @@
 
-__kernel void find_nearest_prototype(__global const float* data, __global const float* prototypes,__global int* out, const int dim, const int K, int n)
+__kernel void find_nearest_prototype(
+__global const float* data,
+__global const float* prototypes,
+__global int* out_assignment,
+const uint dim,
+const uint K,
+uint n)
 {
 
     int i = get_global_id(0);
@@ -25,7 +31,8 @@ __kernel void find_nearest_prototype(__global const float* data, __global const 
          }
 
     }
-    out[i] = nearestproto;
+    
+    out_assignment[i] = nearestproto;
 }
 
 __kernel void calculate_prototype(__global const float* data,__global int* points,__global float* out, const int dim, const int K,int size)
