@@ -2,18 +2,19 @@
 __kernel void find_nearest_prototype(
 __global const float* data,
 __global const float* prototypes,
-__global int* out_assignment,
+__global uint* out_assignment,
 const uint dim,
 const uint K,
 uint n)
 {
 
-    int i = get_global_id(0);
+    const int i = get_global_id(0);
     if (i >= n)
         return;
 
-    float min = FLT_MAX ;
-    int nearestproto = 0;
+    float min = FLT_MAX;
+    
+    uint nearestproto = 0;
     for( int k = 0; k < K;k++){
 
         float sum = 0.0f;
@@ -25,13 +26,13 @@ uint n)
         //sum = native_sqrt(sum);
 
 
-         if (sum < min){
+         if (sum <= min){
              min = sum;
              nearestproto = k;
          }
 
     }
-    
+
     out_assignment[i] = nearestproto;
 }
 

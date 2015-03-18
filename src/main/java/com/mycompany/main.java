@@ -32,8 +32,8 @@ public class main {
     public static int N;
 
     public static void main(String[] args) throws IOException {
-//        String path = "C:\\Users\\mirek_000\\Documents\\Dropbox\\workspace\\Clustering_Project\\GEOdata_Cholesteatom_nurLogRatio.csv";
-        String path = "C:\\Users\\mirek_000\\Documents\\Dropbox\\workspace\\Clustering_Project\\Test.csv";
+        String path = "C:\\Users\\mirek_000\\Documents\\Dropbox\\workspace\\Clustering_Project\\GEOdata_Cholesteatom_nurLogRatio.csv";
+//        String path = "C:\\Users\\mirek_000\\Documents\\Dropbox\\workspace\\Clustering_Project\\Test.csv";
         importCSV(path);
 
         // Select Random Prototypes from Data
@@ -65,7 +65,7 @@ public class main {
 
         CLBuffer<Float> vectors = context.createFloatBuffer(Usage.Input, FloatBuffer.wrap(data), true);
         CLBuffer<Float> prototypeBuffer = context.createFloatBuffer(Usage.Input, FloatBuffer.wrap(prototypes), false);
-        CLBuffer<Integer> proto_Assignment = context.createIntBuffer(Usage.Output, IntBuffer.wrap(nearestPrototypeforVector), false);
+        CLBuffer<Integer> proto_Assignment = context.createIntBuffer(Usage.InputOutput, IntBuffer.wrap(nearestPrototypeforVector), false);
 
 //        // Read the program sources and compile them :
 //        String src = IOUtils.readText(com.mycompany.main.class.getResource("TutorialKernels.cl"));
@@ -79,26 +79,42 @@ public class main {
         float[] newprototypes;
         CLEvent findNearestPrototypes;
         Pointer<Integer> outPtr;
-        int[] selectedPrototypes;
-        for (int t = 0; t < MAX_ITERATIONS; t++) {
+        int[] selectedPrototypes = new int[DIM * N];
+        int[] new_selectedPrototypes;
+        boolean finished = false;
+        while (!finished) {
             findNearestPrototypes = kernels.find_nearest_prototype(queue, vectors, prototypeBuffer, proto_Assignment, DIM, K, N, globalSizes, null);
-
             outPtr = proto_Assignment.read(queue, findNearestPrototypes);
-            selectedPrototypes = outPtr.getInts();
+            new_selectedPrototypes = outPtr.getInts();
+            // Convergence if no assignments changed
+            if (Arrays.equals(new_selectedPrototypes, selectedPrototypes)) {
+                finished=true;
+                break;
+            }
+            selectedPrototypes = new_selectedPrototypes;
             newprototypes = new float[DIM * K];
             for (int i = 0; i < N; i++) {
                 for (int d = 0; d < DIM; d++) {
-                    newprototypes[selectedPrototypes[i] * DIM + d] += data[i + d];
+                    try {
+                        if (new_selectedPrototypes[i] * DIM + d > K * DIM) {
+                            System.out.printf("i:%d d:%d DIM:%d newp:%d size:%d",i,d,DIM,new_selectedPrototypes[i],selectedPrototypes.length);
+                            System.out.println("stop");
+                        }
+                        newprototypes[new_selectedPrototypes[i] * DIM + d] += data[i + d];
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 }
             }
             for (int k = 0; k < K; k++) {
                 final int filter = k;
-                long count= Arrays.stream(selectedPrototypes).parallel().filter((s->s == filter)).count();
-                System.out.print("count:"+count + " ");
+                long count= Arrays.stream(new_selectedPrototypes).parallel().filter((s->s == filter)).count();
+//                System.out.print("count:"+count + " ");
                 for (int d = 0; d < DIM; d++) {
                     newprototypes[k* DIM +d] /= count;
                 }
             }
+
 
             prototypes = newprototypes;
             prototypeBuffer.release();
@@ -106,9 +122,10 @@ public class main {
             proto_Assignment.release();
             proto_Assignment = context.createIntBuffer(Usage.Output, IntBuffer.wrap(nearestPrototypeforVector), false);
 
-            System.out.print(selectedPrototypes[0] + " ");
-            System.out.println(prototypes[selectedPrototypes[0]]+"x "+ prototypes[selectedPrototypes[0]+1]+"y");
+//            System.out.print(new_selectedPrototypes[0] + " ");
+//            System.out.println(prototypes[new_selectedPrototypes[0]]+"x "+ prototypes[new_selectedPrototypes[0]+1]+"y");
         }
+
         long t1 = System.currentTimeMillis();
         System.out.println(t1 - t0 + "ms");
 
@@ -119,7 +136,7 @@ public class main {
 
         try {
             Reader in = new FileReader(path);
-            List<CSVRecord> records = CSVFormat.DEFAULT.parse(in).getRecords();  // Tab Delimiter
+            List<CSVRecord> records = CSVFormat.TDF.parse(in).getRecords();  // Tab Delimiter
 
             DIM = records.get(0).size()-1;   // -1 ID column
             N = records.size()-1;     // -1 Header Row
