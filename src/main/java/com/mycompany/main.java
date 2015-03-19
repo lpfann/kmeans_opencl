@@ -49,14 +49,16 @@ public class main {
         CLBuffer<Float> vectors = context.createFloatBuffer(Usage.Input, FloatBuffer.wrap(data), true);
         Pointer<Float> prototypePtr = Pointer.allocateFloats(K * DIM);
         prototypePtr.setFloats(initPrototypes());
-        CLBuffer<Float> prototypeBuffer = context.createFloatBuffer(Usage.Input, prototypePtr, false);
+        CLBuffer<Float> prototypeBuffer = context.createFloatBuffer(Usage.InputOutput, prototypePtr, false);
         Pointer<Integer> clusters = Pointer.allocateInts(N);
         CLBuffer<Integer> proto_Assignment = context.createIntBuffer(Usage.InputOutput, clusters, false);;
         // Load Kernel
         TutorialKernels kernels = new TutorialKernels(context);
         float[] newPrototypes;
         CLEvent findNearestPrototypes;
+        CLEvent calcPrototypes;
         CLEvent readData;
+        CLBuffer<Integer> countBuffer = context.createIntBuffer(Usage.Input, K);
         Pointer<Integer> outPtr = Pointer.allocateInts(N);
         int[] clusterForEachPoint = new int[DIM * N];
         int[] new_clusterForEachPoint;
@@ -80,12 +82,15 @@ public class main {
             }
             clusterForEachPoint = new_clusterForEachPoint;
 
-
             //Calculate new Prototype positions
-            newPrototypes = calcNewPrototypes(new_clusterForEachPoint);  // Maximization Step (in EM-Algorithm)
+
+            calcPrototypes = kernels.calc_prototype(queue, vectors, proto_Assignment, prototypeBuffer, countBuffer, DIM, K, N, new int[]{K * DIM}, null);
+//            readData = prototypeBuffer.read(queue,prototypePtr,true,calcPrototypes);
+//            newPrototypes = prototypePtr.getFloats();
+
             // Write back to Device Memory
-            prototypePtr.setFloats(newPrototypes);
-            writenewdata = prototypeBuffer.write(queue,prototypePtr,true);
+//            prototypePtr.setFloats(newPrototypes);
+//            writenewdata = prototypeBuffer.write(queue,prototypePtr,true);
 
            // DEBUG CODE
 //            System.out.print(new_clusterForEachPoint[100] + " ");
@@ -110,6 +115,8 @@ public class main {
         newprototypes = new float[DIM * K];
         long[] counts = new long[K];
         // Sum up all Points in each Cluster
+
+
         for (int i = 0; i < N; i++) {
             // Count all points for each Cluster
             counts[clusterForEachPoint[i]]++;

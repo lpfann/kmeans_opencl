@@ -33,21 +33,41 @@ uint n)
     out_assignment[i] = nearestproto;
 }
 
-__kernel void calculate_prototype(__global const float* data,__global int* points,__global float* out, const int dim, const int K,int size)
+
+__kernel void calc_prototype(
+__global const float* data,
+__global const uint* assignment,
+__global float* out_prototypes,
+__global uint* out_count,
+const uint dim,
+const uint K,
+const uint N)
 {
 
-    int i = get_global_id(0);
-    if (i >= K)
+    const int i = get_global_id(0);
+    if (i >= K*dim)
         return;
+    const uint k = i/dim;
+    const uint d = i%dim;
 
+    float element = 0.0f;
+    uint count = 0;
+    for (uint x = 0; x < N; x++){
 
-    for (int s = 0; s < size; s++)  {
-        for(int d = 0; d < dim; d++){
-            out[d]=data[points[s]+d];
+        if(assignment[x]==k){
+
+            element += data[x+d];
+            count++;
+
         }
+
     }
-    if(size>0)
-        for(int d = 0; d < dim; d++){
-            out[d]= out[d]/size;
-        }
+
+
+    barrier(CLK_GLOBAL_MEM_FENCE);
+    if(d==0){
+        out_count[k] = count;
+    }
+    element = native_divide(element,out_count[k]);
+    out_prototypes[i] = element;
 }
