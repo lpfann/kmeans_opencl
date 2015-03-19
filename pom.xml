@@ -15,7 +15,7 @@
             <plugin>
                 <groupId>com.nativelibs4java</groupId>
                 <artifactId>maven-javacl-plugin</artifactId>
-                <version>1.0-SNAPSHOT</version>
+                <version>1.0.0-RC4</version>
                 <executions>
                     <execution>
                         <phase>generate-sources</phase>
@@ -33,7 +33,7 @@
         <dependency>
             <groupId>com.nativelibs4java</groupId>
             <artifactId>javacl</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>1.0.0-RC4</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -52,23 +52,5 @@
         </dependency>
     </dependencies>
 
-    <repositories>
-        <repository>
-            <id>sonatype</id>
-            <name>Sonatype OSS Snapshots Repository</name>
-            <url>http://oss.sonatype.org/content/groups/public</url>
-        </repository>
-        <repository>
-            <id>nativelibs4java</id>
-            <name>nativelibs4java Maven2 Repository</name>
-            <url>http://nativelibs4java.sourceforge.net/maven</url>
-        </repository>
-    </repositories>
-    <pluginRepositories>
-        <pluginRepository>
-            <id>sonatype</id>
-            <name>Sonatype OSS Snapshots Repository</name>
-            <url>http://oss.sonatype.org/content/groups/public</url>
-        </pluginRepository>
-    </pluginRepositories>
+
 </project>
