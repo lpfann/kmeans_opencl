@@ -15,9 +15,10 @@ uint n)
     float min = FLT_MAX;
     
     uint nearestproto = 0;
-    for( int k = 0; k < K;k++){
+    float sum;
+    for( int k = 0; k < K; k++){
 
-        float sum = 0.0f;
+        sum = 0.0f;
         for (int d = 0; d < dim;d++){
             sum += native_powr( data[i*dim +d] - prototypes[k*dim+d], 2);
         }
@@ -26,7 +27,7 @@ uint n)
         //sum = native_sqrt(sum);
 
 
-         if (sum <= min){
+         if (sum < min){
              min = sum;
              nearestproto = k;
          }
