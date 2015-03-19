@@ -20,17 +20,17 @@ import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.groupingByConcurrent;
 
 public class main {
-    private static final int MAX_ITERATIONS = 100000;
+    private static final int MAX_ITERATIONS = 300;
     static float[] data;
     static ArrayList<String> ids;
-    public static final int K = 2;
+    public static final int K = 100;
     public static int DIM;
     public static int N;
 
     public static void main(String[] args) throws IOException {
-//        String path = "C:\\Users\\mirek_000\\Documents\\Dropbox\\workspace\\Clustering_Project\\GEOdata_Cholesteatom_nurLogRatio.csv";
+        String path = "C:\\Users\\mirek_000\\Documents\\Dropbox\\workspace\\Clustering_Project\\GEOdata_Cholesteatom_nurLogRatio.csv";
 //        String path = "C:\\Users\\mirek_000\\Documents\\Dropbox\\workspace\\Clustering_Project\\Test.csv";
-        String path = "/home/lukas/workspace/kmeans_clustering_opencl/GEOdata_Cholesteatom_nurLogRatio.csv";
+//        String path = "/home/lukas/workspace/kmeans_clustering_opencl/GEOdata_Cholesteatom_nurLogRatio.csv";
 //        String path = "/home/lukas/workspace/kmeans_clustering_opencl/Test.csv";
         importCSV(path);
 
@@ -46,17 +46,18 @@ public class main {
         CLContext context = JavaCL.createBestContext(CLPlatform.DeviceFeature.GPU);
         CLQueue queue = context.createDefaultQueue();
         // Init. Buffers for first call
-        CLBuffer<Float> vectors = context.createFloatBuffer(Usage.Input, FloatBuffer.wrap(data), false);
+        CLBuffer<Float> vectors = context.createFloatBuffer(Usage.Input, FloatBuffer.wrap(data), true);
         Pointer<Float> prototypePtr = Pointer.allocateFloats(K * DIM);
-        float[] prototypes = initPrototypes(); // create firrt prototypes (random for now)
-        prototypePtr.setFloats(prototypes);
+        prototypePtr.setFloats(initPrototypes());
         CLBuffer<Float> prototypeBuffer = context.createFloatBuffer(Usage.Input, prototypePtr, false);
         Pointer<Integer> clusters = Pointer.allocateInts(N);
-        CLBuffer<Integer> proto_Assignment = context.createIntBuffer(Usage.Output, clusters, false);
+        CLBuffer<Integer> proto_Assignment = context.createIntBuffer(Usage.InputOutput, clusters, false);;
         // Load Kernel
         TutorialKernels kernels = new TutorialKernels(context);
         float[] newPrototypes;
         CLEvent findNearestPrototypes;
+        CLEvent readData;
+        Pointer<Integer> outPtr = Pointer.allocateInts(N);
         int[] clusterForEachPoint = new int[DIM * N];
         int[] new_clusterForEachPoint;
         CLEvent writenewdata = prototypeBuffer.write(queue, prototypePtr, true);
@@ -66,11 +67,10 @@ public class main {
          * Main KMeans Loop - Runs until convergence to steady cluster assignments for each point
          */
         while (!finished && ++t < MAX_ITERATIONS ) {
-            proto_Assignment = context.createIntBuffer(Usage.InputOutput, clusters, false);
             // Main Call for Computing Kernel - Runs Distance Meaasure for each point to each Cluster Prototype
             findNearestPrototypes = kernels.find_nearest_prototype(queue, vectors, prototypeBuffer, proto_Assignment, DIM, K, N, new int[]{N}, null, writenewdata);   // Expectation Step ( EM-Algorithm)
             // Read results when previous call finished
-            Pointer<Integer> outPtr = proto_Assignment.read(queue, findNearestPrototypes);
+            readData = proto_Assignment.read(queue, outPtr, true, findNearestPrototypes);
             new_clusterForEachPoint = outPtr.getInts();
 
             // Convergence if no assignments changed
@@ -115,14 +115,8 @@ public class main {
             counts[clusterForEachPoint[i]]++;
             // Sum
             for (int d = 0; d < DIM; d++) {
-                // DEBUG Step - TODO fix Overflow Bug
-                if (clusterForEachPoint[i] * DIM + d > K * DIM) {
-                        System.out.printf("i:%d d:%d DIM:%d newp:%d size:%d",i,d,DIM, clusterForEachPoint[i-1], clusterForEachPoint.length);
-                        System.out.println("stop");
-                }
                 // Elementwise summation
                 newprototypes[clusterForEachPoint[i] * DIM + d] += data[i + d];
-
             }
         }
 

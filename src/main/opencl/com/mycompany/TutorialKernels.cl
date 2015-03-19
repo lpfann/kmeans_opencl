@@ -16,16 +16,12 @@ uint n)
     
     uint nearestproto = 0;
     float sum;
-    for( int k = 0; k < K; k++){
+    for (uint k = 0; k < K; k++){
 
         sum = 0.0f;
-        for (int d = 0; d < dim;d++){
+        for (uint d = 0; d < dim;d++){
             sum += native_powr( data[i*dim +d] - prototypes[k*dim+d], 2);
         }
-
-        //Square Root not needed for distance decision
-        //sum = native_sqrt(sum);
-
 
          if (sum < min){
              min = sum;
