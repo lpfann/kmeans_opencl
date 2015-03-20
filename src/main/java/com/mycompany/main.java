@@ -23,7 +23,7 @@ public class main {
     private static final int MAX_ITERATIONS = 1000;
     static float[] data;
     static ArrayList<String> ids;
-    public static final int K = 2;
+    public static final int K = 1000;
     public static int DIM;
     public static int N;
 
@@ -48,7 +48,8 @@ public class main {
         // Init. Buffers for first call
         CLBuffer<Float> vectors = context.createFloatBuffer(Usage.Input, FloatBuffer.wrap(data), true);
         Pointer<Float> prototypePtr = Pointer.allocateFloats(K * DIM);
-        prototypePtr.setFloats(initPrototypes());
+        float[] initialProtos = initPrototypes();
+        prototypePtr.setFloats(initialProtos);
         CLBuffer<Float> prototypeBuffer = context.createFloatBuffer(Usage.InputOutput, prototypePtr, false);
         Pointer<Integer> clusters = Pointer.allocateInts(N);
         CLBuffer<Integer> proto_Assignment = context.createIntBuffer(Usage.InputOutput, clusters, false);;
@@ -60,7 +61,7 @@ public class main {
         CLEvent readData;
         CLBuffer<Integer> countBuffer = context.createIntBuffer(Usage.Input, K);
         Pointer<Integer> outPtr = Pointer.allocateInts(N);
-        int[] clusterForEachPoint = new int[DIM * N];
+        int[] clusterForEachPoint = new int[N];
         int[] new_clusterForEachPoint;
         CLEvent writenewdata = prototypeBuffer.write(queue, prototypePtr, true);
         boolean finished = false;
@@ -74,17 +75,18 @@ public class main {
             // Read results when previous call finished
             readData = proto_Assignment.read(queue, outPtr, true, findNearestPrototypes);
             new_clusterForEachPoint = outPtr.getInts();
-
+            float[] read = prototypeBuffer.read(queue, findNearestPrototypes).getFloats();
             // Convergence if no assignments changed
             if (Arrays.equals(new_clusterForEachPoint, clusterForEachPoint)) {
                 finished=true;
+                clusterForEachPoint = new_clusterForEachPoint;
                 break;
             }
             clusterForEachPoint = new_clusterForEachPoint;
 
             //Calculate new Prototype positions
+            calcPrototypes = kernels.calc_prototype(queue, vectors, proto_Assignment, prototypeBuffer, countBuffer, DIM, K, N, new int[]{K*DIM}, null);
 
-            calcPrototypes = kernels.calc_prototype(queue, vectors, proto_Assignment, prototypeBuffer, countBuffer, DIM, K, N, new int[]{K * DIM}, null);
 //            readData = prototypeBuffer.read(queue,prototypePtr,true,calcPrototypes);
 //            newPrototypes = prototypePtr.getFloats();
 
@@ -102,7 +104,6 @@ public class main {
         }
         long t1 = System.currentTimeMillis();
         System.out.println(t1 - t0 + "ms");
-
     }
 
     /**
@@ -149,19 +150,21 @@ public class main {
         int[] prototypeIDs = new int[K];
         for (int k = 0; k < K; k++) {
             // Select Random Unique Indices for all K
-            boolean randomNumberUnique = true;
+            boolean randomNumberUnique;
                 do {
                     int index = random.nextInt(N);
+                    randomNumberUnique = true;
                     prototypeIDs[k] = index;
                     for (int j = 0; j < k; j++) {
                         if (prototypeIDs[j] == index) {
                             randomNumberUnique = false;
+                            break;
                         }
                     }
                 } while (!randomNumberUnique);
             // Copy Raw Values into Float Array
             for (int d = 0; d < DIM; d++) {
-                prototypes[k* DIM +d] = data[prototypeIDs[k]+d];
+                prototypes[k* DIM +d] = data[prototypeIDs[k]*DIM +d];
             }
         }
         ///
@@ -185,7 +188,7 @@ public class main {
             data = new float[DIM * N];
             NumberFormat nf = NumberFormat.getInstance(Locale.GERMAN);
 
-            for (int j = 1; j < N; j++) {
+            for (int j = 1; j < N+1; j++) {
                 CSVRecord record = records.get(j);
                 ids.add(record.get(0));
 

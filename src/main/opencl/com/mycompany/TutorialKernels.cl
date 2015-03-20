@@ -20,16 +20,13 @@ uint n)
 
         sum = 0.0f;
         for (uint d = 0; d < dim;d++){
-            sum += native_powr( data[i*dim +d] - prototypes[k*dim+d], 2);
+            sum += pown( data[i*dim +d] - prototypes[k*dim+d], 2);
         }
-
-         if (sum < min){
-             min = sum;
-             nearestproto = k;
-         }
+        //sum = native_sqrt(sum);
+        min = fmin(min,sum);
+        nearestproto = (min==sum) ? k : nearestproto;
 
     }
-
     out_assignment[i] = nearestproto;
 }
 
@@ -55,12 +52,14 @@ const uint N)
     for (uint x = 0; x < N; x++){
 
         if(assignment[x]==k){
-
             element += data[x*dim +d];
             count++;
 
         }
 
+    }
+    if(count==0){
+        return;
     }
 
 
@@ -68,6 +67,8 @@ const uint N)
     if(d==0){
         out_count[k] = count;
     }
+
     element = native_divide(element,out_count[k]);
     out_prototypes[i] = element;
+    //printf("d:%d k:%d count:%d element:%f\n",d,k,count,element);
 }
