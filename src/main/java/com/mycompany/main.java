@@ -20,10 +20,10 @@ import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.groupingByConcurrent;
 
 public class main {
-    private static final int MAX_ITERATIONS = 300;
+    private static final int MAX_ITERATIONS = 1000;
     static float[] data;
     static ArrayList<String> ids;
-    public static final int K = 100;
+    public static final int K = 2;
     public static int DIM;
     public static int N;
 

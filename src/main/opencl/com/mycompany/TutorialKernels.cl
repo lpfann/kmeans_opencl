@@ -56,7 +56,7 @@ const uint N)
 
         if(assignment[x]==k){
 
-            element += data[x+d];
+            element += data[x*dim +d];
             count++;
 
         }
