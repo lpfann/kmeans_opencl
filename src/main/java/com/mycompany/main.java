@@ -11,13 +11,10 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.FloatBuffer;
-import java.nio.IntBuffer;
 import java.text.NumberFormat;
 import java.text.ParseException;
 import java.util.*;
 
-import static java.util.stream.Collectors.groupingBy;
-import static java.util.stream.Collectors.groupingByConcurrent;
 
 public class main {
     private static final int MAX_ITERATIONS = 1000;
@@ -104,37 +101,6 @@ public class main {
         }
         long t1 = System.currentTimeMillis();
         System.out.println(t1 - t0 + "ms");
-    }
-
-    /**
-     * Calculates new positition for all 'K' Cluster Prototypes
-     * @param clusterForEachPoint Assignment for each point in Dataset to cluster
-     * @return New Positions in 1-DIM Float Array (Each Point has DIM Elements)
-     */
-    private static float[] calcNewPrototypes(int[] clusterForEachPoint) {
-        float[] newprototypes;
-        newprototypes = new float[DIM * K];
-        long[] counts = new long[K];
-        // Sum up all Points in each Cluster
-
-
-        for (int i = 0; i < N; i++) {
-            // Count all points for each Cluster
-            counts[clusterForEachPoint[i]]++;
-            // Sum
-            for (int d = 0; d < DIM; d++) {
-                // Elementwise summation
-                newprototypes[clusterForEachPoint[i] * DIM + d] += data[i + d];
-            }
-        }
-
-        // Dividie Sum by Cluster Element Count for the Mean
-        for (int k = 0; k < K; k++) {
-            for (int d = 0; d < DIM; d++) {
-                newprototypes[k* DIM +d] /= counts[k];
-            }
-        }
-        return newprototypes;
     }
 
     /**
