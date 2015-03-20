@@ -19,7 +19,7 @@
                     </descriptorRefs>
                     <archive>
                         <manifest>
-                            <mainClass>com.mycompany.main</mainClass>
+                            <mainClass>com.mycompany.KmeansClustering</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

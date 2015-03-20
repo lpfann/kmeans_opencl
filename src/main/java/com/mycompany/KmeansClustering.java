@@ -6,7 +6,6 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 import org.bridj.Pointer;
 
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
@@ -16,13 +15,13 @@ import java.text.ParseException;
 import java.util.*;
 
 
-public class main {
+public class KmeansClustering {
     private static final int MAX_ITERATIONS = 1000;
-    static float[] data;
-    static ArrayList<String> ids;
-    public static final int K = 1000;
-    public static int DIM;
-    public static int N;
+    private static final int K = 1000;
+    private static float[] data;
+    private static ArrayList<String> ids;
+    private static int DIM;
+    private static int N;
 
     public static void main(String[] args) throws IOException {
         String path = "C:\\Users\\mirek_000\\Documents\\Dropbox\\workspace\\Clustering_Project\\GEOdata_Cholesteatom_nurLogRatio.csv";
@@ -31,7 +30,7 @@ public class main {
 //        String path = "/home/lukas/workspace/kmeans_clustering_opencl/Test.csv";
         importCSV(path);
 
-          //DEBUG CODE
+        //DEBUG CODE
 //        // Read the program sources and compile them :
 //        String src = IOUtils.readText(com.mycompany.main.class.getResource("TutorialKernels.cl"));
 //        CLProgram program = context.createProgram(src);
@@ -49,10 +48,9 @@ public class main {
         prototypePtr.setFloats(initialProtos);
         CLBuffer<Float> prototypeBuffer = context.createFloatBuffer(Usage.InputOutput, prototypePtr, false);
         Pointer<Integer> clusters = Pointer.allocateInts(N);
-        CLBuffer<Integer> proto_Assignment = context.createIntBuffer(Usage.InputOutput, clusters, false);;
+        CLBuffer<Integer> proto_Assignment = context.createIntBuffer(Usage.InputOutput, clusters, false);
         // Load Kernel
         TutorialKernels kernels = new TutorialKernels(context);
-        float[] newPrototypes;
         CLEvent findNearestPrototypes;
         CLEvent calcPrototypes;
         CLEvent readData;
@@ -66,7 +64,7 @@ public class main {
         /**
          * Main KMeans Loop - Runs until convergence to steady cluster assignments for each point
          */
-        while (!finished && ++t < MAX_ITERATIONS ) {
+        while (++t < MAX_ITERATIONS) {
             // Main Call for Computing Kernel - Runs Distance Meaasure for each point to each Cluster Prototype
             findNearestPrototypes = kernels.find_nearest_prototype(queue, vectors, prototypeBuffer, proto_Assignment, DIM, K, N, new int[]{N}, null, writenewdata);   // Expectation Step ( EM-Algorithm)
             // Read results when previous call finished
@@ -75,14 +73,14 @@ public class main {
             float[] read = prototypeBuffer.read(queue, findNearestPrototypes).getFloats();
             // Convergence if no assignments changed
             if (Arrays.equals(new_clusterForEachPoint, clusterForEachPoint)) {
-                finished=true;
                 clusterForEachPoint = new_clusterForEachPoint;
+                finished = true;
                 break;
             }
             clusterForEachPoint = new_clusterForEachPoint;
 
             //Calculate new Prototype positions
-            calcPrototypes = kernels.calc_prototype(queue, vectors, proto_Assignment, prototypeBuffer, countBuffer, DIM, K, N, new int[]{K*DIM}, null);
+            calcPrototypes = kernels.calc_prototype(queue, vectors, proto_Assignment, prototypeBuffer, countBuffer, DIM, K, N, new int[]{K * DIM}, null);
 
 //            readData = prototypeBuffer.read(queue,prototypePtr,true,calcPrototypes);
 //            newPrototypes = prototypePtr.getFloats();
@@ -91,7 +89,7 @@ public class main {
 //            prototypePtr.setFloats(newPrototypes);
 //            writenewdata = prototypeBuffer.write(queue,prototypePtr,true);
 
-           // DEBUG CODE
+            // DEBUG CODE
 //            System.out.print(new_clusterForEachPoint[100] + " ");
 //            System.out.println(newPrototypes[new_clusterForEachPoint[100]]+"x "+ newPrototypes[new_clusterForEachPoint[100]+1]+"y");
         }
@@ -107,31 +105,30 @@ public class main {
      * Initalising prototype positions
      * Randomly choosing unique Indices for now
      * TODO implement init. from Kmeans++
+     *
      * @return Prototype Positions
      */
     private static float[] initPrototypes() {
         // Select Random Prototypes from Data
         Random random = new Random();
-        float[] prototypes = new float[DIM *K];
+        float[] prototypes = new float[DIM * K];
         int[] prototypeIDs = new int[K];
         for (int k = 0; k < K; k++) {
             // Select Random Unique Indices for all K
             boolean randomNumberUnique;
-                do {
-                    int index = random.nextInt(N);
-                    randomNumberUnique = true;
-                    prototypeIDs[k] = index;
-                    for (int j = 0; j < k; j++) {
-                        if (prototypeIDs[j] == index) {
-                            randomNumberUnique = false;
-                            break;
-                        }
+            do {
+                int index = random.nextInt(N);
+                randomNumberUnique = true;
+                prototypeIDs[k] = index;
+                for (int j = 0; j < k; j++) {
+                    if (prototypeIDs[j] == index) {
+                        randomNumberUnique = false;
+                        break;
                     }
-                } while (!randomNumberUnique);
+                }
+            } while (!randomNumberUnique);
             // Copy Raw Values into Float Array
-            for (int d = 0; d < DIM; d++) {
-                prototypes[k* DIM +d] = data[prototypeIDs[k]*DIM +d];
-            }
+            System.arraycopy(data, prototypeIDs[k] * DIM, prototypes, k * DIM, DIM);
         }
         ///
         return prototypes;
@@ -139,6 +136,7 @@ public class main {
 
     /**
      * Import CSV Files and store it in data array
+     *
      * @param path
      */
     private static void importCSV(String path) {
@@ -154,7 +152,7 @@ public class main {
             data = new float[DIM * N];
             NumberFormat nf = NumberFormat.getInstance(Locale.GERMAN);
 
-            for (int j = 1; j < N+1; j++) {
+            for (int j = 1; j < N + 1; j++) {
                 CSVRecord record = records.get(j);
                 ids.add(record.get(0));
 
@@ -163,15 +161,7 @@ public class main {
                 }
 
             }
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-            System.out.println("Loading of InputFile was not possible. Exiting...");
-            System.exit(-1);
-        } catch (IOException e) {
-            e.printStackTrace();
-            System.out.println("Loading of InputFile was not possible. Exiting...");
-            System.exit(-1);
-        } catch (ParseException e) {
+        } catch (IOException | ParseException e) {
             e.printStackTrace();
             System.out.println("Loading of InputFile was not possible. Exiting...");
             System.exit(-1);
