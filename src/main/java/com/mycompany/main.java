@@ -6,10 +6,7 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 import org.bridj.Pointer;
 
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.Reader;
+import java.io.*;
 import java.nio.FloatBuffer;
 import java.text.NumberFormat;
 import java.text.ParseException;
@@ -17,17 +14,17 @@ import java.util.*;
 
 
 public class main {
+    public static final int K = 5;
     private static final int MAX_ITERATIONS = 1000;
-    static float[] data;
-    static ArrayList<String> ids;
-    public static final int K = 1000;
     public static int DIM;
     public static int N;
+    static float[] data;
+    static ArrayList<String> ids;
 
     public static void main(String[] args) throws IOException {
-        String path = "C:\\Users\\mirek_000\\Documents\\Dropbox\\workspace\\Clustering_Project\\GEOdata_Cholesteatom_nurLogRatio.csv";
+//        String path = "C:\\Users\\mirek_000\\Documents\\Dropbox\\workspace\\Clustering_Project\\GEOdata_Cholesteatom_nurLogRatio.csv";
 //        String path = "C:\\Users\\mirek_000\\Documents\\Dropbox\\workspace\\Clustering_Project\\Test.csv";
-//        String path = "/home/lukas/workspace/kmeans_clustering_opencl/GEOdata_Cholesteatom_nurLogRatio.csv";
+        String path = "/home/lukas/workspace/kmeans_clustering_opencl/GEOdata_Cholesteatom_nurLogRatio.csv";
 //        String path = "/home/lukas/workspace/kmeans_clustering_opencl/Test.csv";
         importCSV(path);
 
@@ -101,6 +98,25 @@ public class main {
         }
         long t1 = System.currentTimeMillis();
         System.out.println(t1 - t0 + "ms");
+        writeFile(clusterForEachPoint);
+    }
+
+    /**
+     * Write Cluster Assignments to file.
+     * Each line corresponds to one DataPoint
+     *
+     * @param clusterForEachPoint Data Array to be written
+     * @throws IOException
+     */
+    private static void writeFile(int[] clusterForEachPoint) throws IOException {
+        String filename = "out.dat";
+        BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(filename));
+        for (int i = 0; i < N; i++) {
+            bufferedWriter.write(clusterForEachPoint[i] + "");
+            bufferedWriter.newLine();
+        }
+        bufferedWriter.flush();
+        bufferedWriter.close();
     }
 
     /**
