@@ -7,6 +7,7 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 import org.bridj.Pointer;
 
+import java.io.*;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
@@ -60,7 +61,7 @@ public class KmeansClustering {
 
         importCSV(path);
 
-        //DEBUG CODE
+          //DEBUG CODE
 //        // Read the program sources and compile them :
 //        String src = IOUtils.readText(com.mycompany.main.class.getResource("TutorialKernels.cl"));
 //        CLProgram program = context.createProgram(src);
@@ -139,6 +140,24 @@ public class KmeansClustering {
             System.out.println("Max-Iterations exceeded. Results did not converge.");
         }
         return clusterForEachPoint;
+    }
+
+    /**
+     * Write Cluster Assignments to file.
+     * Each line corresponds to one DataPoint
+     *
+     * @param clusterForEachPoint Data Array to be written
+     * @throws IOException
+     */
+    private static void writeFile(int[] clusterForEachPoint) throws IOException {
+        String filename = "out.dat";
+        BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(filename));
+        for (int i = 0; i < N; i++) {
+            bufferedWriter.write(clusterForEachPoint[i] + "");
+            bufferedWriter.newLine();
+        }
+        bufferedWriter.flush();
+        bufferedWriter.close();
     }
 
     /**
