@@ -2,6 +2,7 @@ package com.mycompany;
 
 import com.nativelibs4java.opencl.*;
 import com.nativelibs4java.opencl.CLMem.Usage;
+import org.apache.commons.cli.*;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 import org.bridj.Pointer;
@@ -17,17 +18,46 @@ import java.util.*;
 
 public class KmeansClustering {
     private static final int MAX_ITERATIONS = 1000;
-    private static final int K = 1000;
+    private static int K;
     private static float[] data;
     private static ArrayList<String> ids;
     private static int DIM;
     private static int N;
 
     public static void main(String[] args) throws IOException {
-        String path = "C:\\Users\\mirek_000\\Documents\\Dropbox\\workspace\\Clustering_Project\\GEOdata_Cholesteatom_nurLogRatio.csv";
-//        String path = "C:\\Users\\mirek_000\\Documents\\Dropbox\\workspace\\Clustering_Project\\Test.csv";
-//        String path = "/home/lukas/workspace/kmeans_clustering_opencl/GEOdata_Cholesteatom_nurLogRatio.csv";
-//        String path = "/home/lukas/workspace/kmeans_clustering_opencl/Test.csv";
+        String path = "";
+        Options options = new Options();
+        options.addOption(OptionBuilder.withLongOpt("numberOfClusters").withDescription("Number of clusters").withType(Number.class).hasArg().withArgName("k").create());
+        options.addOption(OptionBuilder.withLongOpt("path").withDescription("Path to Input File").withType(String.class).hasArg().withArgName("p").create());
+        CommandLineParser commandLineParser = new PosixParser();
+        try {
+            CommandLine commandLine = commandLineParser.parse(options, args);
+            int value = 0;
+            if (commandLine.hasOption("numberOfClusters")) {
+                value = ((Number) commandLine.getParsedOptionValue("numberOfClusters")).intValue();
+                if (value > 1) {
+                    K = value;
+                } else {
+                    System.out.println("K Value smaller than 2. Choose a better value");
+                    System.exit(-1);
+                }
+            } else {
+                System.out.println("K Value is missing.");
+                System.exit(-1);
+            }
+            if (commandLine.hasOption("path")) {
+                path = (String) commandLine.getParsedOptionValue("path");
+                System.out.println();
+
+            } else {
+                System.out.println("Missing Path to .csv file.");
+                System.exit(-1);
+            }
+
+        } catch (org.apache.commons.cli.ParseException e) {
+            e.printStackTrace();
+        }
+
         importCSV(path);
 
         //DEBUG CODE
@@ -37,36 +67,47 @@ public class KmeansClustering {
 //        // Get and call the kernel :
 //        CLKernel addFloatsKernel = program.createKernel("find_nearest_prototype");
 
-        long t0 = System.currentTimeMillis();
+        //       long t0 = System.currentTimeMillis();
+        startClustering(K, DIM, N);
+        //       long t1 = System.currentTimeMillis();
+        //       System.out.println(t1 - t0 + "ms");
+    }
 
+    private static int[] startClustering(int k, int dim, int n) {
         CLContext context = JavaCL.createBestContext(CLPlatform.DeviceFeature.GPU);
         CLQueue queue = context.createDefaultQueue();
         // Init. Buffers for first call
         CLBuffer<Float> vectors = context.createFloatBuffer(Usage.Input, FloatBuffer.wrap(data), true);
-        Pointer<Float> prototypePtr = Pointer.allocateFloats(K * DIM);
+        Pointer<Float> prototypePtr = Pointer.allocateFloats(k * dim);
         float[] initialProtos = initPrototypes();
         prototypePtr.setFloats(initialProtos);
         CLBuffer<Float> prototypeBuffer = context.createFloatBuffer(Usage.InputOutput, prototypePtr, false);
-        Pointer<Integer> clusters = Pointer.allocateInts(N);
+        Pointer<Integer> clusters = Pointer.allocateInts(n);
         CLBuffer<Integer> proto_Assignment = context.createIntBuffer(Usage.InputOutput, clusters, false);
         // Load Kernel
-        TutorialKernels kernels = new TutorialKernels(context);
+        TutorialKernels kernels = null;
+        try {
+            kernels = new TutorialKernels(context);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         CLEvent findNearestPrototypes;
         CLEvent calcPrototypes;
         CLEvent readData;
-        CLBuffer<Integer> countBuffer = context.createIntBuffer(Usage.Input, K);
-        Pointer<Integer> outPtr = Pointer.allocateInts(N);
-        int[] clusterForEachPoint = new int[N];
+        CLBuffer<Integer> countBuffer = context.createIntBuffer(Usage.Input, k);
+        Pointer<Integer> outPtr = Pointer.allocateInts(n);
+        int[] clusterForEachPoint = new int[n];
         int[] new_clusterForEachPoint;
         CLEvent writenewdata = prototypeBuffer.write(queue, prototypePtr, true);
         boolean finished = false;
-        int t = 0;
+
         /**
          * Main KMeans Loop - Runs until convergence to steady cluster assignments for each point
          */
+        int t = 0;
         while (++t < MAX_ITERATIONS) {
             // Main Call for Computing Kernel - Runs Distance Meaasure for each point to each Cluster Prototype
-            findNearestPrototypes = kernels.find_nearest_prototype(queue, vectors, prototypeBuffer, proto_Assignment, DIM, K, N, new int[]{N}, null, writenewdata);   // Expectation Step ( EM-Algorithm)
+            findNearestPrototypes = kernels.find_nearest_prototype(queue, vectors, prototypeBuffer, proto_Assignment, dim, k, n, new int[]{n}, null, writenewdata);   // Expectation Step ( EM-Algorithm)
             // Read results when previous call finished
             readData = proto_Assignment.read(queue, outPtr, true, findNearestPrototypes);
             new_clusterForEachPoint = outPtr.getInts();
@@ -80,7 +121,7 @@ public class KmeansClustering {
             clusterForEachPoint = new_clusterForEachPoint;
 
             //Calculate new Prototype positions
-            calcPrototypes = kernels.calc_prototype(queue, vectors, proto_Assignment, prototypeBuffer, countBuffer, DIM, K, N, new int[]{K * DIM}, null);
+            calcPrototypes = kernels.calc_prototype(queue, vectors, proto_Assignment, prototypeBuffer, countBuffer, dim, k, n, new int[]{k * dim}, null);
 
 //            readData = prototypeBuffer.read(queue,prototypePtr,true,calcPrototypes);
 //            newPrototypes = prototypePtr.getFloats();
@@ -97,8 +138,7 @@ public class KmeansClustering {
         if (!finished) {
             System.out.println("Max-Iterations exceeded. Results did not converge.");
         }
-        long t1 = System.currentTimeMillis();
-        System.out.println(t1 - t0 + "ms");
+        return clusterForEachPoint;
     }
 
     /**
