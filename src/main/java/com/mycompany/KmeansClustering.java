@@ -30,6 +30,8 @@ public class KmeansClustering {
         options.addOption(OptionBuilder.withLongOpt("path").withDescription("Path to Input File").withType(String.class).hasArg().withArgName("p").create());
         options.addOption("sout", false, "Print to system out");
         CommandLineParser commandLineParser = new PosixParser();
+        HelpFormatter formatter = new HelpFormatter();
+
         try {
             CommandLine commandLine = commandLineParser.parse(options, args);
             int value = 0;
@@ -43,6 +45,7 @@ public class KmeansClustering {
                 }
             } else {
                 System.out.println("K Value is missing.");
+                formatter.printHelp("kmeans", options);
                 System.exit(-1);
             }
             if (commandLine.hasOption("path")) {
@@ -51,12 +54,15 @@ public class KmeansClustering {
 
             } else {
                 System.out.println("Missing Path to .csv file.");
+                formatter.printHelp("kmeans", options);
                 System.exit(-1);
             }
             sout = commandLine.hasOption("sout");
 
         } catch (org.apache.commons.cli.ParseException e) {
+            formatter.printHelp("kmeans", options);
             e.printStackTrace();
+            System.exit(-1);
         }
 
         importCSV(path);
