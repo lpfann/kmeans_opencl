@@ -8,9 +8,6 @@ import org.apache.commons.csv.CSVRecord;
 import org.bridj.Pointer;
 
 import java.io.*;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.Reader;
 import java.nio.FloatBuffer;
 import java.text.NumberFormat;
 import java.text.ParseException;
@@ -19,6 +16,7 @@ import java.util.*;
 
 public class KmeansClustering {
     private static final int MAX_ITERATIONS = 1000;
+    public static boolean sout = false;
     private static int K;
     private static float[] data;
     private static ArrayList<String> ids;
@@ -30,6 +28,7 @@ public class KmeansClustering {
         Options options = new Options();
         options.addOption(OptionBuilder.withLongOpt("numberOfClusters").withDescription("Number of clusters").withType(Number.class).hasArg().withArgName("k").create());
         options.addOption(OptionBuilder.withLongOpt("path").withDescription("Path to Input File").withType(String.class).hasArg().withArgName("p").create());
+        options.addOption("sout", false, "Print to system out");
         CommandLineParser commandLineParser = new PosixParser();
         try {
             CommandLine commandLine = commandLineParser.parse(options, args);
@@ -54,6 +53,7 @@ public class KmeansClustering {
                 System.out.println("Missing Path to .csv file.");
                 System.exit(-1);
             }
+            sout = commandLine.hasOption("sout");
 
         } catch (org.apache.commons.cli.ParseException e) {
             e.printStackTrace();
@@ -61,7 +61,7 @@ public class KmeansClustering {
 
         importCSV(path);
 
-          //DEBUG CODE
+        //DEBUG CODE
 //        // Read the program sources and compile them :
 //        String src = IOUtils.readText(com.mycompany.main.class.getResource("TutorialKernels.cl"));
 //        CLProgram program = context.createProgram(src);
@@ -69,7 +69,14 @@ public class KmeansClustering {
 //        CLKernel addFloatsKernel = program.createKernel("find_nearest_prototype");
 
         //       long t0 = System.currentTimeMillis();
-        startClustering(K, DIM, N);
+        int[] clustering = startClustering(K, DIM, N);
+        if (sout) {
+            for (int i = 0; i < N; i++) {
+                System.out.println(clustering[i]);
+            }
+        } else {
+            writeFile(clustering);
+        }
         //       long t1 = System.currentTimeMillis();
         //       System.out.println(t1 - t0 + "ms");
     }
