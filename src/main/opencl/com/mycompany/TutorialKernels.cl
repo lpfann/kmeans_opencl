@@ -20,9 +20,9 @@ uint n)
 
         sum = 0.0f;
         for (uint d = 0; d < dim;d++){
-            sum += pown( data[i*dim +d] - prototypes[k*dim+d], 2);
+            sum += (data[i*dim +d] - prototypes[k*dim+d])*(data[i*dim +d] - prototypes[k*dim+d]);
         }
-        //sum = native_sqrt(sum);
+
         min = fmin(min,sum);
         nearestproto = (min==sum) ? k : nearestproto;
 
@@ -54,21 +54,18 @@ const uint N)
         if(assignment[x]==k){
             element += data[x*dim +d];
             count++;
-
         }
-
-    }
-    if(count==0){
-        return;
     }
 
 
-    barrier(CLK_GLOBAL_MEM_FENCE);
     if(d==0){
         out_count[k] = count;
     }
 
-    element = native_divide(element,out_count[k]);
+    barrier(CLK_GLOBAL_MEM_FENCE);
+
+    // m_k-means method to prohibit empty clusters
+    element = (element + out_prototypes[i]) / (out_count[k]+1);
     out_prototypes[i] = element;
-    //printf("d:%d k:%d count:%d element:%f\n",d,k,count,element);
+    //printf("%d\n", get_num_groups(1));
 }
