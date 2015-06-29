@@ -25,7 +25,7 @@ public class Clustering {
     public Clustering(String[] args) {
         String path = parseArgs(args);
         importCSV(path);
-        KmeansClustering kmeans = new KmeansClustering(K, false, data);
+        KmeansClustering kmeans = new KmeansClustering(K, dim, data, false);
         assignments = kmeans.clusteringLoop();
 
     }

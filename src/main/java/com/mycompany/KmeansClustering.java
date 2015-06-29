@@ -6,11 +6,12 @@ import org.bridj.Pointer;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.Random;
 
 
 public class KmeansClustering {
-    private static final int MAX_ITERATIONS = 1000;
+    private static final int MAX_ITERATIONS = 100000;
     static int K;
     static int N;
     private final int k;
@@ -38,10 +39,11 @@ public class KmeansClustering {
     private TutorialKernels kernels;
 
 
-    public KmeansClustering(int k, boolean useCPU, float[] data) {
+    public KmeansClustering(int k, int dim, float[] data, boolean useCPU) {
         this.data = data;
         this.k = k;
-
+        this.dim = dim;
+        this.n = data.length / dim;
         this.DATA_SIZE = n * dim;
         this.PROTOTYPE_SIZE = k * dim;
 
@@ -50,8 +52,8 @@ public class KmeansClustering {
         queue = context.createDefaultQueue();
 
         // Init. Buffers for data Points
-
         dataPointsPtr = Pointer.allocateFloats(DATA_SIZE).order(context.getByteOrder());
+        dataPointsPtr.setFloats(data);
         dataPointsBuffer = context.createBuffer(Usage.Input, dataPointsPtr, true);
 
         // Init Prototype Buffers  and location of first generation
@@ -105,12 +107,11 @@ public class KmeansClustering {
 
             // Convergence if no assignments changed
             if (Arrays.equals(new_clusterForEachPoint, clusterForEachPoint)) {
-                clusterForEachPoint = new_clusterForEachPoint;
                 finished = true;
                 break;
             }
 
-/*
+
             //Check Convergence - if nothing changes for a specified amount of iterations - break out
             int count=0;
             LinkedList<Integer> outlier = new LinkedList<>();
@@ -133,14 +134,14 @@ public class KmeansClustering {
             }
             old_change_val = count;
             System.out.println(delta);
-*/
 
+            clusterForEachPoint = new_clusterForEachPoint;
 
             //Calculate new Prototype positions
             //calcPrototypesEvent = kernels.calc_prototype(queue, vectors, proto_Assignment, prototypeBuffer, countBuffer, dim, k, n, new int[]{k * dim}, null,findNearestPrototypesEvent);
             //calcPrototypesEvent.waitFor();
 
-            prototypes = calcNewPrototypes();
+            prototypes = calcNewPrototypes(clusterForEachPoint, k, n, dim, data, prototypes);
             try {
                 Pointer<Float> data = prototypeBuffer.map(queue, CLMem.MapFlags.Write);
                 data.setFloats(prototypes);
@@ -156,16 +157,23 @@ public class KmeansClustering {
         if (!finished) {
             System.out.println("Max-Iterations exceeded. Results did not converge.");
         }
-        return clusterForEachPoint;
+        return new_clusterForEachPoint;
     }
 
     /**
      * Calculates new positition for all 'K' Cluster Prototypes
      * @return New Positions in 1-DIM Float Array (Each Point has DIM Elements)
+     * @param clusterForEachPoint
+     * @param k
+     * @param n
+     * @param dim
+     * @param data
+     * @param old_prototypes
      */
-    public float[] calcNewPrototypes() {
+    public float[] calcNewPrototypes(int[] clusterForEachPoint, int k, int n, int dim, float[] data, float[] old_prototypes) {
         float[] newprototypes;
-        newprototypes = new float[PROTOTYPE_SIZE];
+        int prototype_size = k * dim;
+        newprototypes = new float[prototype_size];
         long[] counts = new long[k];
         // Sum up all Points in each Cluster
         for (int i = 0; i < n; i++) {
@@ -181,7 +189,7 @@ public class KmeansClustering {
         // Dividie Sum by Cluster Element Count for the Mean
         for (int i = 0; i < k; i++) {
             for (int j = 0; j < dim; j++) {
-                newprototypes[i * dim + j] = (newprototypes[i * dim + j] + prototypes[i * dim + j]) / (counts[i] + 1);
+                newprototypes[i * dim + j] = (newprototypes[i * dim + j] + old_prototypes[i * dim + j]) / (counts[i] + 1);
             }
         }
         return newprototypes;
