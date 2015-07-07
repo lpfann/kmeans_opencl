@@ -11,7 +11,7 @@ import java.util.Random;
 
 
 public class KmeansClustering {
-    private static final int MAX_ITERATIONS = 100000;
+    private static final int MAX_ITERATIONS = 1000000;
     static int K;
     static int N;
     private final int k;
@@ -49,6 +49,7 @@ public class KmeansClustering {
 
         // OpenCL Init.
         context = JavaCL.createBestContext(useCPU ? CLPlatform.DeviceFeature.CPU : CLPlatform.DeviceFeature.GPU);
+        System.err.println("Used Device: "+context.getDevices()[0].getName());
         queue = context.createDefaultQueue();
 
         // Init. Buffers for data Points
@@ -114,27 +115,24 @@ public class KmeansClustering {
 
             //Check Convergence - if nothing changes for a specified amount of iterations - break out
             int count=0;
-            LinkedList<Integer> outlier = new LinkedList<>();
-            for (int i = 0; i < N; i++) {
+            boolean[] outliers = new boolean[n];
+            for (int i = 0; i < this.n; i++) {
                 if (clusterForEachPoint[i]!= new_clusterForEachPoint[i]) {
                     count++;
-                    outlier.add(i);
+                    outliers[i]=true;
                 }
             }
-
-            // Update Assignments
-            clusterForEachPoint = new_clusterForEachPoint;
-
             int delta = Math.abs(count - old_change_val);
             if (delta == 0) {
                 if (change_counter > change_threshold) {
+
                     break;
                 }
                 change_counter++;
             }
             old_change_val = count;
-            System.out.println(delta);
 
+            // Update Assignments
             clusterForEachPoint = new_clusterForEachPoint;
 
             //Calculate new Prototype positions
@@ -155,7 +153,7 @@ public class KmeansClustering {
         }
 
         if (!finished) {
-            System.out.println("Max-Iterations exceeded. Results did not converge.");
+            System.err.println("Max-Iterations exceeded.");
         }
         return new_clusterForEachPoint;
     }

@@ -18,6 +18,9 @@ public class KmeansClusteringTest extends TestCase {
 
     public void setUp() throws Exception {
         super.setUp();
+    }
+
+    private void initSimpleTestSet1Dim() {
         k = 2;
         n = 100;
         dim = 1;
@@ -33,6 +36,7 @@ public class KmeansClusteringTest extends TestCase {
     }
 
     public void testClusteringLoop() throws Exception {
+        initSimpleTestSet1Dim();
         int[] assignments = kmeansClustering.clusteringLoop();
         assertEquals(n, assignments.length);
         int[] count = new int[k];
@@ -43,7 +47,6 @@ public class KmeansClusteringTest extends TestCase {
             assertTrue(count[i] > 0);
         }
 
-        System.out.println("test");
     }
 
     public void testCalcNewPrototypes() throws Exception {

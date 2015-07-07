@@ -21,11 +21,12 @@ public class Clustering {
     private int n;
     private ArrayList<String> ids;
     private float[] data;
+    private boolean useCPU;
 
     public Clustering(String[] args) {
         String path = parseArgs(args);
         importCSV(path);
-        KmeansClustering kmeans = new KmeansClustering(K, dim, data, false);
+        KmeansClustering kmeans = new KmeansClustering(K, dim, data, useCPU);
         assignments = kmeans.clusteringLoop();
 
     }
@@ -58,38 +59,40 @@ public class Clustering {
     private String parseArgs(String[] args) {
         String path = "";
         Options options = new Options();
-        options.addOption(OptionBuilder.withLongOpt("numberOfClusters").withDescription("Number of clusters").withType(Number.class).hasArg().withArgName("k").create());
-        options.addOption(OptionBuilder.withLongOpt("path").withDescription("Path to Input File").withType(String.class).hasArg().withArgName("p").create());
+        options.addOption(OptionBuilder.withDescription("Number of clusters").withType(Number.class).hasArg().withArgName("k").create("k"));
+        options.addOption(OptionBuilder.withDescription("Path to Input File").withType(String.class).hasArg().withArgName("p").create("p"));
         options.addOption("sout", false, "Print to system out");
+        options.addOption("cpu", false, "Force calculation on CPU, Default is GPU");
         CommandLineParser commandLineParser = new PosixParser();
         HelpFormatter formatter = new HelpFormatter();
 
         try {
             CommandLine commandLine = commandLineParser.parse(options, args);
             int value = 0;
-            if (commandLine.hasOption("numberOfClusters")) {
-                value = ((Number) commandLine.getParsedOptionValue("numberOfClusters")).intValue();
+            if (commandLine.hasOption("k")) {
+                value = ((Number) commandLine.getParsedOptionValue("k")).intValue();
                 if (value > 1) {
                     K = value;
                 } else {
-                    System.out.println("K Value smaller than 2. Choose a better value");
+                    System.err.println("K Value smaller than 2. Choose a better value");
                     System.exit(-1);
                 }
             } else {
-                System.out.println("K Value is missing.");
+                System.err.println("K Value is missing.");
                 formatter.printHelp("kmeans", options);
                 System.exit(-1);
             }
-            if (commandLine.hasOption("path")) {
-                path = (String) commandLine.getParsedOptionValue("path");
+            if (commandLine.hasOption("p")) {
+                path = (String) commandLine.getParsedOptionValue("p");
                 System.out.println();
 
             } else {
-                System.out.println("Missing Path to .csv file.");
+                System.err.println("Missing Path to .csv file.");
                 formatter.printHelp("kmeans", options);
                 System.exit(-1);
             }
             sout = commandLine.hasOption("sout");
+            useCPU = commandLine.hasOption("cpu");
 
         } catch (ParseException e) {
             formatter.printHelp("kmeans", options);
