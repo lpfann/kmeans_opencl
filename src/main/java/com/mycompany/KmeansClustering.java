@@ -119,7 +119,7 @@ public class KmeansClustering {
             }
 
 
-            //Check Convergence - if nothing changes for a specified amount of iterations - break out
+/*            //Check Convergence - if nothing changes for a specified amount of iterations - break out
             int count=0;
             for (int i = 0; i < this.n; i++) {
                 if (clusterForEachPoint[i]!= new_clusterForEachPoint[i]) {
@@ -133,17 +133,17 @@ public class KmeansClustering {
                 }
                 change_counter++;
             }
-            old_change_val = count;
+            old_change_val = count;*/
 
             // Update Assignments
             clusterForEachPoint = new_clusterForEachPoint;
 
             //Calculate new Prototype positions
-            //calcPrototypesEvent = kernels.calc_prototype(queue, dataPointsBuffer, proto_Assignment, prototypeBuffer, dim, k, n, new int[]{k * dim}, null);
-            //calcPrototypesEvent.waitFor();
-            //prototypes = prototypeBuffer.read(queue,calcPrototypesEvent).getFloats(k*dim);
+            calcPrototypesEvent = kernels.calc_prototype(queue, dataPointsBuffer, proto_Assignment, prototypeBuffer, dim, k, n, new int[]{k * dim}, null);
+            calcPrototypesEvent.waitFor();
+            prototypes = prototypeBuffer.read(queue,calcPrototypesEvent).getFloats(k*dim);
 
-            prototypes = calcNewPrototypes(clusterForEachPoint, k, n, dim, data, prototypes);
+            //prototypes = calcNewPrototypes(clusterForEachPoint, k, n, dim, data, prototypes);
 
             try {
                 Pointer<Float> data = prototypeBuffer.map(queue, CLMem.MapFlags.Write);
