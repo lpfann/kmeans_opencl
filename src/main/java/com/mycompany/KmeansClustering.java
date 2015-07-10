@@ -2,8 +2,11 @@ package com.mycompany;
 
 import com.nativelibs4java.opencl.*;
 import com.nativelibs4java.opencl.CLMem.Usage;
+import com.nativelibs4java.opencl.util.OpenCLType;
+import com.nativelibs4java.opencl.util.ReductionUtils;
 import org.bridj.Pointer;
 
+import javax.sql.rowset.serial.SerialRef;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -11,7 +14,7 @@ import java.util.Random;
 
 
 public class KmeansClustering {
-    private static final int MAX_ITERATIONS = 1000000;
+    private static final int MAX_ITERATIONS = 100000000;
     static int K;
     static int N;
     private final int k;
@@ -52,6 +55,15 @@ public class KmeansClustering {
         System.err.println("Used Device: "+context.getDevices()[0].getName());
         queue = context.createDefaultQueue();
 
+        // Load Kernel
+        kernels = null;
+        try {
+            kernels = new TutorialKernels(context);
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+
         // Init. Buffers for data Points
         dataPointsPtr = Pointer.allocateFloats(DATA_SIZE).order(context.getByteOrder());
         dataPointsPtr.setFloats(data);
@@ -59,7 +71,8 @@ public class KmeansClustering {
 
         // Init Prototype Buffers  and location of first generation
         prototypePtr = Pointer.allocateFloats(PROTOTYPE_SIZE);
-        prototypes = initPrototypes();
+        //prototypes = initPrototypes();
+        prototypes = initPrototypesKMeansPP();
         prototypePtr.setFloats(prototypes);
         prototypeBuffer = context.createBuffer(Usage.InputOutput, prototypePtr, false);
 
@@ -72,14 +85,7 @@ public class KmeansClustering {
         // Init device memory for output
         outPtr = Pointer.allocateInts(n);
 
-        // Load Kernel
-        kernels = null;
-        try {
-            kernels = new TutorialKernels(context);
-        } catch (IOException e) {
-            e.printStackTrace();
-            System.exit(-1);
-        }
+
 
 
     }
@@ -115,17 +121,14 @@ public class KmeansClustering {
 
             //Check Convergence - if nothing changes for a specified amount of iterations - break out
             int count=0;
-            boolean[] outliers = new boolean[n];
             for (int i = 0; i < this.n; i++) {
                 if (clusterForEachPoint[i]!= new_clusterForEachPoint[i]) {
                     count++;
-                    outliers[i]=true;
                 }
             }
             int delta = Math.abs(count - old_change_val);
             if (delta == 0) {
                 if (change_counter > change_threshold) {
-
                     break;
                 }
                 change_counter++;
@@ -136,10 +139,12 @@ public class KmeansClustering {
             clusterForEachPoint = new_clusterForEachPoint;
 
             //Calculate new Prototype positions
-            //calcPrototypesEvent = kernels.calc_prototype(queue, vectors, proto_Assignment, prototypeBuffer, countBuffer, dim, k, n, new int[]{k * dim}, null,findNearestPrototypesEvent);
+            //calcPrototypesEvent = kernels.calc_prototype(queue, dataPointsBuffer, proto_Assignment, prototypeBuffer, dim, k, n, new int[]{k * dim}, null);
             //calcPrototypesEvent.waitFor();
+            //prototypes = prototypeBuffer.read(queue,calcPrototypesEvent).getFloats(k*dim);
 
             prototypes = calcNewPrototypes(clusterForEachPoint, k, n, dim, data, prototypes);
+
             try {
                 Pointer<Float> data = prototypeBuffer.map(queue, CLMem.MapFlags.Write);
                 data.setFloats(prototypes);
@@ -149,7 +154,6 @@ public class KmeansClustering {
                 newprotpointer.setFloats(prototypes);
                 prototypeBuffer.write(queue, newprotpointer, true);
             }
-
         }
 
         if (!finished) {
@@ -224,6 +228,79 @@ public class KmeansClustering {
         ///
         return prototypes;
     }
+
+    /**
+     * Initialising prototype positions  using Kmeans++
+     *
+     * @return Prototype Positions
+     */
+    public float[] initPrototypesKMeansPP() {
+        // Select Random Prototypes from Data
+        Random random = new Random();
+        float[] prototypes = new float[PROTOTYPE_SIZE];
+        prototypePtr = Pointer.allocateFloats(PROTOTYPE_SIZE);
+        prototypePtr.setFloats(prototypes);
+        prototypeBuffer = context.createBuffer(Usage.InputOutput, prototypePtr, false);
+
+        // Init Dist buffer
+        Pointer<Float> distPointer = Pointer.allocateFloats(n);
+        CLBuffer<Float> distBuffer = context.createBuffer(Usage.InputOutput, distPointer, false);
+        ReductionUtils.Reductor<Float> reductor = ReductionUtils.createReductor(context, ReductionUtils.Operation.Add, OpenCLType.Float, 1);
+
+        int[] prototypeIDs = new int[k];
+        float sum = 0;
+        for (int i = 0; i < k; i++) {
+            if (i == 0) {
+                // Select First prototype
+                int index = random.nextInt(n);
+                prototypeIDs[i] = index;
+            } else {
+
+                CLEvent calc_dist = kernels.calc_dist_to_nearest_prototype(queue, dataPointsBuffer, prototypeBuffer, distBuffer, dim, k, n, i, new int[]{n}, null);
+                CLEvent read = distBuffer.read(queue, distPointer, true, calc_dist);
+                float[] dists = distPointer.getFloats();
+                Pointer<Float> out = Pointer.allocateFloat();
+
+
+                CLEvent reduce = reductor.reduce(queue, distBuffer, n, out, n);
+                reduce.waitFor();
+                sum = out.getFloat();
+
+                Arrays.sort(dists);
+                float chosen_bound = random.nextFloat()*sum;
+                float accumulator = 0.0f;
+                int pos = 0;
+                while (accumulator < chosen_bound) {
+                    accumulator+=dists[pos];
+                    pos++;
+
+                }
+                if (pos == n) {
+                    pos -=1;
+                }
+                prototypeIDs[i]=pos;
+                assert pos < n;
+            }
+
+                // Copy Raw Values into Float Array
+
+                System.arraycopy(data, prototypeIDs[i] * dim, prototypes, i * dim, dim);
+
+            try {
+                Pointer<Float> data = prototypeBuffer.map(queue, CLMem.MapFlags.Write);
+                data.setFloats(prototypes);
+                prototypeBuffer.unmap(queue, data);
+            } catch (CLException.MapFailure ex) {
+                Pointer<Float> newprotpointer = Pointer.allocateFloats(PROTOTYPE_SIZE);
+                newprotpointer.setFloats(prototypes);
+                prototypeBuffer.write(queue, newprotpointer, true);
+            }
+        }
+        ///
+        System.err.println("Initalized prototypes using Kmeans++ behaviour");
+        return prototypes;
+    }
+
 
 }
 

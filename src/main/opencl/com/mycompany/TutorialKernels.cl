@@ -30,12 +30,41 @@ uint n)
     out_assignment[i] = nearestproto;
 }
 
+__kernel void calc_dist_to_nearest_prototype(
+__global const float* data,
+__global const float* prototypes,
+__global float* out_dist,
+const uint dim,
+const uint K,
+uint n,
+const uint current)
+{
+
+    const int i = get_global_id(0);
+    if (i >= n)
+        return;
+
+    float min = FLT_MAX;
+    float sum;
+    for (uint k = 0; k < current; k++){
+
+        sum = 0.0f;
+        for (uint d = 0; d < dim;d++){
+            sum += (data[i*dim +d] - prototypes[k*dim+d]) * (data[i*dim +d] - prototypes[k*dim+d]);
+        }
+
+        min = fmin(min,sum);
+    }
+
+
+    out_dist[i] = min;
+}
+
 
 __kernel void calc_prototype(
 __global const float* data,
 __global const uint* assignment,
 __global float* out_prototypes,
-__global uint* out_count,
 const uint dim,
 const uint K,
 const uint N)
@@ -57,15 +86,10 @@ const uint N)
         }
     }
 
-
-    if(d==0){
-        out_count[k] = count;
-    }
-
     barrier(CLK_GLOBAL_MEM_FENCE);
 
     // m_k-means method to prohibit empty clusters
-    element = (element + out_prototypes[i]) / (out_count[k]+1);
-    out_prototypes[i] = element;
-    //printf("%d\n", get_num_groups(1));
+    element = (element + out_prototypes[i]) / (count+1);
+    barrier(CLK_GLOBAL_MEM_FENCE);
+    //out_prototypes[i] = element;
 }
