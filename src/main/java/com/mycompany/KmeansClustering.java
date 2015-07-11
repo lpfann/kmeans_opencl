@@ -103,7 +103,7 @@ public class KmeansClustering {
         int change_counter = 0;
         while (++t < MAX_ITERATIONS) {
 
-            // Main Call for Computing Kernel - Runs Distance Meaasure for each point to each Cluster Prototype
+            // Main Call for Computing Kernel - Runs Distance Measure for each point to each Cluster Prototype
             findNearestPrototypesEvent = kernels.find_nearest_prototype(queue, dataPointsBuffer, prototypeBuffer, proto_Assignment, dim, k, n, new int[]{n}, null);   // Expectation Step ( EM-Algorithm)
 
             // Read results when previous call finished
@@ -140,8 +140,9 @@ public class KmeansClustering {
 
             //Calculate new Prototype positions
             calcPrototypesEvent = kernels.calc_prototype(queue, dataPointsBuffer, proto_Assignment, prototypeBuffer, dim, k, n, new int[]{k * dim}, null);
-            calcPrototypesEvent.waitFor();
-            prototypes = prototypeBuffer.read(queue,calcPrototypesEvent).getFloats(k*dim);
+
+            prototypeBuffer.read(queue,prototypePtr,true, calcPrototypesEvent);
+            prototypes = prototypePtr.getFloats();
 
             //prototypes = calcNewPrototypes(clusterForEachPoint, k, n, dim, data, prototypes);
 
@@ -158,6 +159,8 @@ public class KmeansClustering {
 
         if (!finished) {
             System.err.println("Max-Iterations exceeded.");
+        } else {
+            System.err.println("Clustering complete after "+ t+ " iterations");
         }
         return new_clusterForEachPoint;
     }

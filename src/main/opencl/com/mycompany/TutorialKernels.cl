@@ -91,5 +91,5 @@ const uint N)
     // m_k-means method to prohibit empty clusters
     element = (element + out_prototypes[i]) / (count+1);
     barrier(CLK_GLOBAL_MEM_FENCE);
-    //out_prototypes[i] = element;
+    out_prototypes[i] = element;
 }
