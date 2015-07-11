@@ -5,6 +5,7 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 
 import java.io.*;
+import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,6 +23,7 @@ public class Clustering {
     private ArrayList<String> ids;
     private float[] data;
     private boolean useCPU;
+    private boolean germandecimal;
 
     public Clustering(String[] args) {
         String path = parseArgs(args);
@@ -63,6 +65,7 @@ public class Clustering {
         options.addOption(OptionBuilder.withDescription("Path to Input File").withType(String.class).hasArg().withArgName("p").create("p"));
         options.addOption("sout", false, "Print to system out");
         options.addOption("cpu", false, "Force calculation on CPU, Default is GPU");
+        options.addOption("germanLocale", false, "Input Entries use Comma for decimal point");
         CommandLineParser commandLineParser = new PosixParser();
         HelpFormatter formatter = new HelpFormatter();
 
@@ -93,6 +96,7 @@ public class Clustering {
             }
             sout = commandLine.hasOption("sout");
             useCPU = commandLine.hasOption("cpu");
+            germandecimal = commandLine.hasOption("germanLocale");
 
         } catch (ParseException e) {
             formatter.printHelp("kmeans", options);
@@ -135,7 +139,12 @@ public class Clustering {
             n = records.size() - 1;     // -1 Header Row
             ids = new ArrayList<>(n); // Store Names for each Point
             data = new float[dim * n];
-            NumberFormat nf = NumberFormat.getInstance(Locale.GERMAN);
+            NumberFormat nf;
+            if (germandecimal) {
+                nf = DecimalFormat.getInstance(Locale.GERMAN);
+            } else {
+                nf = DecimalFormat.getInstance(Locale.US);
+            }
 
             for (int j = 1; j < n + 1; j++) {
                 CSVRecord record = records.get(j);
