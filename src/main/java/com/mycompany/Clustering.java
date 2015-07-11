@@ -4,6 +4,7 @@ import org.apache.commons.cli.*;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 
+import javax.sql.rowset.serial.SerialRef;
 import java.io.*;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
@@ -39,9 +40,11 @@ public class Clustering {
 
 
         if (sout) {
+            System.err.println("Clustering results:");
             clustering.printAssignments();
         } else {
             clustering.writeFile();
+            System.err.println("Clustering results written into 'out.dat' file");
         }
 
         //       long t0 = System.currentTimeMillis();
